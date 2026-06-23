@@ -19,7 +19,7 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label>Password</Label>
-              <Input type="password" defaultValue="campusrank123" />
+              <Input type="password" placeholder="Enter your password" />
             </div>
             <Button asChild className="w-full">
               <Link href="/dashboard">Open dashboard</Link>

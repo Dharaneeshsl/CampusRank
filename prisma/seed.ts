@@ -13,7 +13,11 @@ async function main() {
     });
   }
 
-  const password = await hash("campusrank123", 10);
+  if (!process.env.DEMO_PASSWORD) {
+    throw new Error("Set DEMO_PASSWORD before running the seed script.");
+  }
+
+  const password = await hash(process.env.DEMO_PASSWORD, 10);
 
   for (const developer of demoDevelopers) {
     const college = await prisma.college.findUniqueOrThrow({

@@ -20,7 +20,7 @@ npm install
 npm run dev
 ```
 
-For production-style persistence, copy `.env.example` to `.env.local`, set a Neon PostgreSQL `DATABASE_URL`, then run:
+For production-style persistence, copy `.env.example` to `.env.local`, set a Neon PostgreSQL `DATABASE_URL`, choose a local `DEMO_PASSWORD`, then run:
 
 ```bash
 npm run db:generate
@@ -28,4 +28,4 @@ npm run db:push
 npm run db:seed
 ```
 
-Demo account: `aaravraman@psgtech.ac.in` / `campusrank123`.
+Demo account email: `aaravraman@psgtech.ac.in`.

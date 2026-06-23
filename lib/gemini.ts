@@ -7,15 +7,15 @@ function fallbackInsight(prompt: string) {
 
 export async function generateGeminiText(prompt: string) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return fallbackInsight(prompt);
+  if (process.env.USE_AI !== "true" || !apiKey) return fallbackInsight(prompt);
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     return result.response.text();
-  } catch (error) {
-    console.error("Gemini generation failed", error);
+  } catch {
+    console.warn("Gemini generation failed; using fallback insight");
     return fallbackInsight(prompt);
   }
 }
