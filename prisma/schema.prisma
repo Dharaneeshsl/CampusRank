@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  password      String?
+  emailVerified Boolean    @default(false)
+  collegeEmail  String     @unique
+  collegeId     String
+  college       College    @relation(fields: [collegeId], references: [id])
+  developer     Developer?
+  createdAt     DateTime   @default(now())
+}
+
+model College {
+  id          String          @id @default(cuid())
+  name        String
+  slug        String          @unique
+  domain      String          @unique
+  city        String
+  state       String
+  logo        String?
+  users       User[]
+  leaderboard Leaderboard?
+  aiInsight   CollegeInsight?
+  createdAt   DateTime        @default(now())
+}
+
+model Developer {
+  id                  String          @id @default(cuid())
+  userId              String          @unique
+  user                User            @relation(fields: [userId], references: [id])
+  username            String          @unique
+  leetcodeUsername    String?
+  codeforcesUsername  String?
+  hackerrankUsername  String?
+  totalScore          Float           @default(0)
+  leetcodeScore       Float           @default(0)
+  codeforcesScore     Float           @default(0)
+  hackerrankScore     Float           @default(0)
+  consistencyScore    Float           @default(0)
+  rank                Int?
+  platformData        PlatformData[]
+  scoreHistory        ScoreHistory[]
+  updatedAt           DateTime        @updatedAt
+}
+
+model PlatformData {
+  id             String    @id @default(cuid())
+  developerId    String
+  developer      Developer @relation(fields: [developerId], references: [id])
+  platform       String
+  rawData        Json
+  processedScore Float
+  fetchedAt      DateTime  @default(now())
+}
+
+model ScoreHistory {
+  id          String    @id @default(cuid())
+  developerId String
+  developer   Developer @relation(fields: [developerId], references: [id])
+  totalScore  Float
+  recordedAt  DateTime  @default(now())
+}
+
+model Leaderboard {
+  id        String   @id @default(cuid())
+  collegeId String   @unique
+  college   College  @relation(fields: [collegeId], references: [id])
+  updatedAt DateTime @updatedAt
+}
+
+model CollegeInsight {
+  id           String   @id @default(cuid())
+  collegeId    String   @unique
+  college      College  @relation(fields: [collegeId], references: [id])
+  insightText  String   @db.Text
+  weeklyReport String   @db.Text
+  topSkills    String[]
+  generatedAt  DateTime @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+
+  @@id([userId, credentialID])
+}
