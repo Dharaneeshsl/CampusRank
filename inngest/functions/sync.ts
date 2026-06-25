@@ -66,3 +66,37 @@ export const generateCollegeInsights = inngest.createFunction(
     return { generated: colleges.length };
   }
 );
+
+export const sendWeeklyDigest = inngest.createFunction(
+  { id: "send-weekly-digest" },
+  { cron: "0 8 * * MON" },
+  async ({ step }) => {
+    const colleges = await step.run("load digest data", () =>
+      prisma.college.findMany({
+        include: {
+          users: {
+            include: { developer: true },
+            take: 3
+          }
+        }
+      })
+    );
+
+    const digests = colleges.map((college) => {
+      const topStudents = college.users
+        .filter((user) => user.developer)
+        .sort((a, b) => (b.developer?.totalScore ?? 0) - (a.developer?.totalScore ?? 0))
+        .slice(0, 3)
+        .map((user, index) => `${index + 1}. ${user.name} (${user.developer?.totalScore.toFixed(1)})`);
+
+      return {
+        college: college.name,
+        recipients: college.users.map((user) => user.email),
+        subject: `${college.name} CampusRank weekly digest`,
+        summary: topStudents.join("; ") || "No ranked students yet"
+      };
+    });
+
+    return { prepared: digests.length, digests };
+  }
+);
