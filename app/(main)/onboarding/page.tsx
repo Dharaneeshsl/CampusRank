@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Github, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,10 +10,17 @@ import { Label } from "@/components/ui/label";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [error, setError] = useState("");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await fetch("/api/sync/all", { method: "POST", body: new FormData(event.currentTarget) });
+    setError("");
+    const response = await fetch("/api/sync/all", { method: "POST", body: new FormData(event.currentTarget) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.error ?? "Could not sync profiles.");
+      return;
+    }
     router.push("/dashboard");
   }
 
@@ -43,6 +51,7 @@ export default function OnboardingPage() {
               <RefreshCw className="h-4 w-4" />
               Fetch first score
             </Button>
+            {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
           </form>
         </CardContent>
       </Card>

@@ -2,11 +2,27 @@
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-export function HistoryChart({ data }: { data: { date: Date | string; score: number }[] }) {
-  const rows = data.map((point) => ({
-    date: new Date(point.date).toLocaleDateString("en", { month: "short", day: "numeric" }),
-    score: point.score
-  }));
+type HistoryPoint = {
+  date?: Date | string;
+  recordedAt?: Date | string;
+  score?: number;
+  totalScore?: number;
+};
+
+export function HistoryChart({ data }: { data: HistoryPoint[] }) {
+  const rows = data
+    .map((point) => {
+      const date = point.date ?? point.recordedAt;
+      const score = point.score ?? point.totalScore;
+
+      if (!date || typeof score !== "number") return null;
+
+      return {
+        date: new Date(date).toLocaleDateString("en", { month: "short", day: "numeric" }),
+        score
+      };
+    })
+    .filter((point): point is { date: string; score: number } => Boolean(point));
 
   return (
     <div className="h-72 w-full">

@@ -11,12 +11,19 @@ import { Label } from "@/components/ui/label";
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
   const domain = useMemo(() => email.split("@")[1] ?? "", [email]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
     const form = new FormData(event.currentTarget);
-    await fetch("/api/auth/register", { method: "POST", body: form });
+    const response = await fetch("/api/auth/register", { method: "POST", body: form });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.error ?? "Registration failed.");
+      return;
+    }
     setSent(true);
   }
 
@@ -77,6 +84,7 @@ export default function RegisterPage() {
               <Button className="w-full" type="submit">
                 Send verification OTP
               </Button>
+              {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
             </form>
           )}
         </CardContent>

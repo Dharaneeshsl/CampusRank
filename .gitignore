@@ -6,3 +6,4 @@ dist
 coverage
 *.log
 .next-dev*.log
+*.tsbuildinfo

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { signIn } from "next-auth/react";
 import { ArrowRight, Calculator, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -27,14 +28,38 @@ type SyncResult = {
 
 export default function LoginPage() {
   const [result, setResult] = useState<SyncResult | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
+    setError("");
     const form = new FormData(event.currentTarget);
+
+    const health = await fetch("/api/health").then((response) => response.json()).catch(() => ({ database: "disabled" }));
+    if (health.database !== "disabled") {
+      const authResult = await signIn("credentials", {
+        email: String(form.get("email") ?? ""),
+        password: String(form.get("password") ?? ""),
+        redirect: false
+      });
+
+      if (authResult?.error) {
+        setError("Invalid email or password.");
+        setLoading(false);
+        return;
+      }
+    }
+
     const response = await fetch("/api/sync/all", { method: "POST", body: form });
-    setResult(await response.json());
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error ?? "Could not sync scores.");
+      setLoading(false);
+      return;
+    }
+    setResult(data);
     setLoading(false);
   }
 
@@ -88,6 +113,7 @@ export default function LoginPage() {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
               Calculate score
             </Button>
+            {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
           </form>
 
           {result ? (

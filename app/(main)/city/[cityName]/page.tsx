@@ -40,7 +40,7 @@ export default async function CityPage({ params }: { params: { cityName: string 
                 <div>
                   <h2 className="text-xl font-bold">{row.name}</h2>
                   <p className="text-sm text-muted-foreground">
-                    {row.students} students · top performer {row.topStudent?.name}
+                    {row.students} students &middot; top performer {row.topStudent?.name}
                   </p>
                 </div>
               </div>

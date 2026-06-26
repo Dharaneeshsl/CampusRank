@@ -8,8 +8,16 @@ function acceptsDomain(domain: string) {
   return domain.endsWith(".ac.in") || colleges.some((college) => college.domain === domain);
 }
 
+function databaseEnabled() {
+  return process.env.USE_DATABASE === "true" && Boolean(process.env.DATABASE_URL);
+}
+
 export async function POST(request: Request) {
-  const form = await request.formData();
+  const form = await request.formData().catch(() => null);
+  if (!form) {
+    return NextResponse.json({ ok: false, error: "Invalid registration request" }, { status: 400 });
+  }
+
   const name = String(form.get("name") ?? "");
   const email = String(form.get("email") ?? "").toLowerCase();
   const password = String(form.get("password") ?? "");
@@ -19,7 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Invalid registration details" }, { status: 400 });
   }
 
-  if (!process.env.DATABASE_URL) {
+  if (!databaseEnabled()) {
     return NextResponse.json({ ok: true, otp: "123456", demo: true });
   }
 
@@ -37,14 +45,16 @@ export async function POST(request: Request) {
     }
   });
 
+  const hashedPassword = await hash(password, 10);
+
   await prisma.user.upsert({
     where: { email },
-    update: { name, password: await hash(password, 10), collegeEmail: email, collegeId: college.id },
+    update: { name, password: hashedPassword, collegeEmail: email, collegeId: college.id },
     create: {
       name,
       email,
       collegeEmail: email,
-      password: await hash(password, 10),
+      password: hashedPassword,
       collegeId: college.id
     }
   });

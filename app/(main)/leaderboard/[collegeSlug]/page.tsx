@@ -54,8 +54,14 @@ export default async function CollegeLeaderboardPage({ params }: { params: { col
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-black">{mostImproved.name}</div>
-              <p className="mt-2 text-muted-foreground">+8.4 points this week across contests and streak activity.</p>
+              {mostImproved ? (
+                <>
+                  <div className="text-2xl font-black">{mostImproved.name}</div>
+                  <p className="mt-2 text-muted-foreground">+8.4 points this week across contests and streak activity.</p>
+                </>
+              ) : (
+                <p className="text-muted-foreground">No ranked students yet.</p>
+              )}
             </CardContent>
           </Card>
         </div>

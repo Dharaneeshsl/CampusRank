@@ -8,6 +8,8 @@ import { studentInsight } from "@/lib/gemini";
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
   const profile: any = await getDeveloperProfile(params.username);
+  if (!profile) return <main className="p-10">Profile not found.</main>;
+
   const name = profile.name ?? profile.user?.name;
   const insight = await studentInsight({
     name,
@@ -24,7 +26,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
         <div>
           <p className="font-semibold text-primary">Public profile</p>
           <h1 className="text-4xl font-black">{name}</h1>
-          <p className="mt-2 text-muted-foreground">@{profile.username} · Rank #{profile.rank ?? 1}</p>
+          <p className="mt-2 text-muted-foreground">@{profile.username} &middot; Rank #{profile.rank ?? 1}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="icon">

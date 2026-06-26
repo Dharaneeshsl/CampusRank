@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { auth } from "./auth";
 import { collegeRows, colleges, demoDevelopers, demoLeaderboard } from "./demo-data";
 
 function isPrismaReady() {
@@ -117,5 +118,23 @@ export async function getDeveloperProfile(username: string) {
 }
 
 export async function getDashboardDeveloper() {
-  return getDeveloperProfile("aaravraman");
+  if (!isPrismaReady()) return getDeveloperProfile("aaravraman");
+
+  const session = await auth();
+  if (!session?.user?.email) return getDeveloperProfile("aaravraman");
+
+  try {
+    const developer = await prisma.developer.findFirst({
+      where: { user: { email: session.user.email } },
+      include: {
+        user: { include: { college: true } },
+        scoreHistory: { orderBy: { recordedAt: "asc" } }
+      }
+    });
+
+    return developer ?? demoDevelopers[0];
+  } catch {
+    console.warn("Falling back to demo dashboard profile");
+    return demoDevelopers[0];
+  }
 }

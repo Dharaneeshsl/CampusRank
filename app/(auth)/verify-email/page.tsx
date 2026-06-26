@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,11 +21,18 @@ function VerifyEmailForm() {
   const params = useSearchParams();
   const router = useRouter();
   const email = params.get("email") ?? "";
+  const [error, setError] = useState("");
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setError("");
     const form = new FormData(event.currentTarget);
-    await fetch("/api/auth/verify-email", { method: "POST", body: form });
+    const response = await fetch("/api/auth/verify-email", { method: "POST", body: form });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      setError(data.error ?? "Verification failed.");
+      return;
+    }
     router.push("/onboarding");
   }
 
@@ -49,6 +57,7 @@ function VerifyEmailForm() {
               <Input name="otp" defaultValue="123456" maxLength={6} />
             </div>
             <Button className="w-full">Verify and continue</Button>
+            {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
           </form>
         </CardContent>
       </Card>
