@@ -2,153 +2,206 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { ArrowRight, Calculator, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatScore } from "@/lib/utils";
-
-type SyncResult = {
-  ok: boolean;
-  profiles: {
-    leetcodeUsername: string;
-    codeforcesUsername: string;
-    hackerrankUsername: string;
-  };
-  scores: {
-    leetcodeScore: number;
-    codeforcesScore: number;
-    hackerrankScore: number;
-    consistencyScore: number;
-    totalScore: number;
-  };
-};
+import { consumeVerifiedLoginState } from "@/lib/auth-flow";
 
 export default function LoginPage() {
-  const [result, setResult] = useState<SyncResult | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-    const form = new FormData(event.currentTarget);
-
-    const health = await fetch("/api/health").then((response) => response.json()).catch(() => ({ database: "disabled" }));
-    if (health.database !== "disabled") {
-      const authResult = await signIn("credentials", {
-        email: String(form.get("email") ?? ""),
-        password: String(form.get("password") ?? ""),
-        redirect: false
-      });
-
-      if (authResult?.error) {
-        setError("Invalid email or password.");
-        setLoading(false);
-        return;
-      }
-    }
-
-    const response = await fetch("/api/sync/all", { method: "POST", body: form });
-    const data = await response.json();
-    if (!response.ok) {
-      setError(data.error ?? "Could not sync scores.");
-      setLoading(false);
-      return;
-    }
-    setResult(data);
-    setLoading(false);
-  }
-
   return (
-    <main className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 px-4 py-10 md:grid-cols-[0.9fr_1.1fr]">
-      <div>
-        <p className="font-semibold text-primary">Login and sync</p>
-        <h1 className="mt-2 text-4xl font-black">Bring your coding profiles in immediately</h1>
-        <p className="mt-4 text-lg leading-8 text-muted-foreground">
-          Enter your college login and coding handles here. CampusRank listens to those profile
-          names, calculates the weighted score, and gets your leaderboard dashboard ready.
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            Student login and score sync
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={submit} className="grid gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="email">College email</Label>
-                <Input id="email" name="email" type="email" placeholder="student@psgtech.ac.in" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" name="password" type="password" placeholder="Enter your password" required />
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="leetcodeUsername">LeetCode</Label>
-                <Input id="leetcodeUsername" name="leetcodeUsername" placeholder="leetcode handle" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="codeforcesUsername">Codeforces</Label>
-                <Input id="codeforcesUsername" name="codeforcesUsername" placeholder="codeforces handle" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hackerrankUsername">HackerRank</Label>
-                <Input id="hackerrankUsername" name="hackerrankUsername" placeholder="hackerrank handle" required />
-              </div>
-            </div>
-
-            <Button className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-              Calculate score
-            </Button>
-            {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
-          </form>
-
-          {result ? (
-            <div className="mt-5 rounded-lg border border-white/10 bg-white/10 p-4">
-              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-                <div>
-                  <div className="text-sm font-semibold text-muted-foreground">CampusRank score</div>
-                  <div className="text-4xl font-black">{formatScore(result.scores.totalScore)}</div>
-                </div>
-                <Button asChild variant="outline">
-                  <Link href="/dashboard">
-                    Open dashboard
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-              <div className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
-                <ScoreLine label="LeetCode" value={result.scores.leetcodeScore} />
-                <ScoreLine label="Codeforces" value={result.scores.codeforcesScore} />
-                <ScoreLine label="HackerRank" value={result.scores.hackerrankScore} />
-                <ScoreLine label="Consistency" value={result.scores.consistencyScore} />
-              </div>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
-    </main>
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
 
-function ScoreLine({ label, value }: { label: string; value: number }) {
+function LoginForm() {
+  const router = useRouter();
+
+  const [step, setStep] = useState<"credentials" | "otp">("credentials");
+  const [email, setEmail] = useState("");
+  const [ticket, setTicket] = useState("");
+  const [otp, setOtp] = useState("");
+  const [verified, setVerified] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    const { verified: justVerified, email: verifiedEmail } = consumeVerifiedLoginState();
+    if (justVerified) setVerified(true);
+    if (verifiedEmail) setEmail(verifiedEmail);
+  }, []);
+
+  async function requestOtp(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const nextEmail = String(formData.get("email") ?? "").trim().toLowerCase();
+
+    const response = await fetch("/api/auth/login-otp", {
+      method: "POST",
+      body: formData
+    });
+    const data = await response.json().catch(() => ({}));
+
+    const passwordInput = form.elements.namedItem("password");
+    if (passwordInput instanceof HTMLInputElement) passwordInput.value = "";
+
+    if (!response.ok || !data.ticket) {
+      setError(data.error ?? "Unable to sign in.");
+      setLoading(false);
+      return;
+    }
+
+    setEmail(nextEmail);
+    setTicket(String(data.ticket));
+    setStep("otp");
+    setLoading(false);
+  }
+
+  async function completeSignIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const result = await signIn("credentials", {
+      email,
+      ticket,
+      otp,
+      redirect: false
+    });
+
+    setTicket("");
+    setOtp("");
+
+    if (result?.error) {
+      setError("Invalid or expired code. Start sign-in again.");
+      setStep("credentials");
+      setLoading(false);
+      return;
+    }
+
+    router.replace("/dashboard");
+    router.refresh();
+  }
+
+  async function resendCode() {
+    setResending(true);
+    setError("");
+    const form = new FormData();
+    form.set("email", email);
+    form.set("purpose", "login");
+    const response = await fetch("/api/auth/resend-otp", { method: "POST", body: form });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) setError(data.error ?? "Unable to resend code.");
+    setResending(false);
+  }
+
   return (
-    <div className="rounded-md border border-white/10 bg-black/20 p-3">
-      <div className="text-muted-foreground">{label}</div>
-      <div className="text-xl font-bold">{formatScore(value)}</div>
+    <div className="glass-panel rounded-2xl p-8">
+      <h1 className="text-3xl font-black tracking-tight">Sign in</h1>
+      <p className="mt-2 text-sm text-white/60">
+        {step === "credentials"
+          ? "Enter your college email and password to receive a one-time code."
+          : `Enter the 6-digit code sent to ${email}.`}
+      </p>
+
+      {verified ? (
+        <p className="mt-4 rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm text-white/90">
+          Email verified. Sign in to continue.
+        </p>
+      ) : null}
+
+      {step === "credentials" ? (
+        <form method="post" onSubmit={requestOtp} className="mt-8 space-y-4" autoComplete="on">
+          <div className="space-y-2">
+            <Label htmlFor="email">College email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              minLength={12}
+              required
+            />
+          </div>
+          <Button className="w-full" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {loading ? "Sending code…" : "Continue"}
+          </Button>
+          {error ? <p className="text-sm font-medium text-red-300">{error}</p> : null}
+        </form>
+      ) : (
+        <form method="post" onSubmit={completeSignIn} className="mt-8 space-y-4" autoComplete="one-time-code">
+          <div className="space-y-2">
+            <Label htmlFor="otp">Sign-in code</Label>
+            <Input
+              id="otp"
+              name="otp"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              autoComplete="one-time-code"
+              value={otp}
+              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+            />
+          </div>
+          <Button className="w-full" disabled={loading || otp.length !== 6}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
+          <button
+            type="button"
+            className="w-full text-sm text-white/60 underline-offset-4 hover:underline disabled:opacity-50"
+            onClick={resendCode}
+            disabled={resending}
+          >
+            {resending ? "Resending…" : "Resend code"}
+          </button>
+          <button
+            type="button"
+            className="w-full text-sm text-white/60 underline-offset-4 hover:underline"
+            onClick={() => {
+              setStep("credentials");
+              setOtp("");
+              setTicket("");
+              setError("");
+            }}
+          >
+            Use a different account
+          </button>
+          {error ? <p className="text-sm font-medium text-red-300">{error}</p> : null}
+        </form>
+      )}
+
+      <p className="mt-8 text-center text-sm text-white/55">
+        New here?{" "}
+        <Link className="font-semibold text-white" href="/register">
+          Create an account
+        </Link>
+      </p>
     </div>
   );
 }

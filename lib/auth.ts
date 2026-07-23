@@ -1,34 +1,44 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compare } from "bcryptjs";
 import { z } from "zod";
-import { prisma } from "./prisma";
+import { isAdminEmail } from "@/lib/admin";
+import { consumeLoginTicket, consumeOtp } from "@/lib/otp";
+import { prisma } from "@/lib/prisma";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6)
+  ticket: z.string().min(32).max(128),
+  otp: z.string().regex(/^\d{6}$/)
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  trustHost: true,
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+    maxAge: 60 * 60 * 12
+  },
   providers: [
     Credentials({
       credentials: {
         email: {},
-        password: {}
+        ticket: {},
+        otp: {}
       },
       async authorize(credentials) {
         const parsed = credentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
-          include: { college: true, developer: true }
-        });
+        const email = parsed.data.email.trim().toLowerCase();
+        const user = await prisma.user.findUnique({ where: { email } });
 
-        if (!user?.password) return null;
-        const valid = await compare(parsed.data.password, user.password);
-        if (!valid) return null;
+        if (!user?.password || !user.emailVerified) return null;
+
+        const validTicket = await consumeLoginTicket(email, parsed.data.ticket);
+        if (!validTicket) return null;
+
+        const validOtp = await consumeOtp(email, parsed.data.otp, "login");
+        if (!validOtp) return null;
 
         return {
           id: user.id,
@@ -42,9 +52,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login"
   },
   callbacks: {
+    async jwt({ token, user }) {
+      if (user?.email) {
+        token.email = user.email;
+        token.isAdmin = isAdminEmail(user.email);
+      } else if (typeof token.email === "string") {
+        token.isAdmin = isAdminEmail(token.email);
+      }
+      return token;
+    },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
+        session.user.isAdmin = Boolean(token.isAdmin);
       }
       return session;
     }

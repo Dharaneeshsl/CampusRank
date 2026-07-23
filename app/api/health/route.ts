@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { emailDeliveryConfigured } from "@/lib/otp";
 
 export async function GET() {
-  const databaseEnabled = process.env.USE_DATABASE === "true" && Boolean(process.env.DATABASE_URL);
-  let database: "disabled" | "connected" | "unreachable" = databaseEnabled ? "unreachable" : "disabled";
+  let database: "connected" | "unreachable" | "unconfigured" = process.env.DATABASE_URL
+    ? "unreachable"
+    : "unconfigured";
 
-  if (databaseEnabled) {
+  if (process.env.DATABASE_URL) {
     try {
       await prisma.$queryRaw`SELECT 1`;
       database = "connected";
@@ -18,6 +20,7 @@ export async function GET() {
     ok: true,
     app: "CampusRank",
     database,
+    email: emailDeliveryConfigured() ? "configured" : "unconfigured",
     ai: process.env.USE_AI === "true" && Boolean(process.env.GEMINI_API_KEY) ? "enabled" : "disabled",
     time: new Date().toISOString()
   });

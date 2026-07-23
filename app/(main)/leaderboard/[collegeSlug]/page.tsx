@@ -57,7 +57,9 @@ export default async function CollegeLeaderboardPage({ params }: { params: { col
               {mostImproved ? (
                 <>
                   <div className="text-2xl font-black">{mostImproved.name}</div>
-                  <p className="mt-2 text-muted-foreground">+8.4 points this week across contests and streak activity.</p>
+                  <p className="mt-2 text-muted-foreground">
+                    Leading with {mostImproved.totalScore?.toFixed?.(1) ?? mostImproved.totalScore} points.
+                  </p>
                 </>
               ) : (
                 <p className="text-muted-foreground">No ranked students yet.</p>

@@ -1,94 +1,91 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, MailCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { setPendingVerifyEmail } from "@/lib/auth-flow";
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const router = useRouter();
   const [error, setError] = useState("");
-  const domain = useMemo(() => email.split("@")[1] ?? "", [email]);
+  const [loading, setLoading] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setLoading(true);
+
     const form = new FormData(event.currentTarget);
+    const nextEmail = String(form.get("email") ?? "").trim().toLowerCase();
     const response = await fetch("/api/auth/register", { method: "POST", body: form });
     const data = await response.json().catch(() => ({}));
+
     if (!response.ok) {
       setError(data.error ?? "Registration failed.");
+      setLoading(false);
       return;
     }
-    setSent(true);
+
+    setPendingVerifyEmail(nextEmail);
+    router.push("/verify-email");
   }
 
   return (
-    <main className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 px-4 py-10 md:grid-cols-2">
-      <div>
-        <h1 className="text-4xl font-black">Join your college leaderboard</h1>
-        <p className="mt-4 text-lg leading-8 text-muted-foreground">
-          Register with a college email. CampusRank detects your institution from the domain and
-          creates a private college leaderboard automatically.
-        </p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MailCheck className="h-5 w-5 text-primary" />
-            Student registration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sent ? (
-            <div className="space-y-4">
-              <p className="rounded-md border border-white/10 bg-white/10 p-4 font-medium">
-                Verification OTP sent. For local demo, use <span className="font-black">123456</span>.
-              </p>
-              <Button asChild>
-                <Link href={`/verify-email?email=${encodeURIComponent(email)}`}>
-                  Verify email
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" name="name" required placeholder="Aarav Raman" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">College email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="student@psgtech.ac.in"
-                />
-                <p className="text-sm text-muted-foreground">
-                  {domain ? `Detected domain: ${domain}` : "Only .ac.in or seeded demo college domains are accepted."}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" name="password" required minLength={6} type="password" />
-              </div>
-              <Button className="w-full" type="submit">
-                Send verification OTP
-              </Button>
-              {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </main>
+    <div className="glass-panel rounded-2xl p-8">
+      <h1 className="text-3xl font-black tracking-tight">Create account</h1>
+      <p className="mt-2 text-sm text-white/60">
+        Use your institution email. We’ll send a one-time verification code.
+      </p>
+
+      <form method="post" onSubmit={submit} className="mt-8 space-y-4" autoComplete="on">
+        <div className="space-y-2">
+          <Label htmlFor="name">Full name</Label>
+          <Input id="name" name="name" autoComplete="name" required minLength={2} maxLength={100} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email">College email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            maxLength={128}
+            required
+          />
+          <p className="text-xs text-white/45">
+            12+ characters with upper, lower, number, and symbol.
+          </p>
+        </div>
+        <Button className="w-full" type="submit" disabled={loading}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {loading ? "Sending code…" : "Send verification code"}
+        </Button>
+        {error ? <p className="text-sm font-medium text-red-300">{error}</p> : null}
+      </form>
+
+      <p className="mt-8 text-center text-sm text-white/55">
+        Already have an account?{" "}
+        <Link className="font-semibold text-white" href="/login">
+          Sign in
+        </Link>
+      </p>
+    </div>
   );
 }

@@ -1,93 +1,33 @@
-import { PrismaClient } from "@prisma/client";
-import { hash } from "bcryptjs";
-import { colleges, demoDevelopers } from "../lib/demo-data";
-
-const prisma = new PrismaClient();
+import { prisma } from "../lib/prisma";
 
 async function main() {
-  for (const college of colleges) {
-    await prisma.college.upsert({
-      where: { domain: college.domain },
-      update: college,
-      create: college
-    });
-  }
-
-  if (!process.env.DEMO_PASSWORD) {
-    throw new Error("Set DEMO_PASSWORD before running the seed script.");
-  }
-
-  const password = await hash(process.env.DEMO_PASSWORD, 10);
-
-  for (const developer of demoDevelopers) {
-    const college = await prisma.college.findUniqueOrThrow({
-      where: { slug: developer.collegeSlug }
-    });
-
-    const user = await prisma.user.upsert({
-      where: { email: developer.email },
-      update: {},
-      create: {
-        name: developer.name,
-        email: developer.email,
-        collegeEmail: developer.email,
-        password,
-        emailVerified: true,
-        collegeId: college.id
-      }
-    });
-
-    const dev = await prisma.developer.upsert({
-      where: { username: developer.username },
-      update: {
-        totalScore: developer.totalScore,
-        leetcodeScore: developer.leetcodeScore,
-        codeforcesScore: developer.codeforcesScore,
-        hackerrankScore: developer.hackerrankScore,
-        consistencyScore: developer.consistencyScore,
-        rank: developer.rank
-      },
-      create: {
-        userId: user.id,
-        username: developer.username,
-        leetcodeUsername: developer.leetcodeUsername,
-        codeforcesUsername: developer.codeforcesUsername,
-        hackerrankUsername: developer.hackerrankUsername,
-        totalScore: developer.totalScore,
-        leetcodeScore: developer.leetcodeScore,
-        codeforcesScore: developer.codeforcesScore,
-        hackerrankScore: developer.hackerrankScore,
-        consistencyScore: developer.consistencyScore,
-        rank: developer.rank
-      }
-    });
-
-    await prisma.scoreHistory.deleteMany({ where: { developerId: dev.id } });
-    for (const point of developer.history) {
-      await prisma.scoreHistory.create({
-        data: {
-          developerId: dev.id,
-          totalScore: point.score,
-          recordedAt: point.date
-        }
-      });
+  await prisma.college.upsert({
+    where: { domain: "psgtech.ac.in" },
+    update: {
+      name: "PSG College of Technology",
+      slug: "psg-college-of-technology",
+      city: "Coimbatore",
+      state: "Tamil Nadu"
+    },
+    create: {
+      name: "PSG College of Technology",
+      slug: "psg-college-of-technology",
+      domain: "psgtech.ac.in",
+      city: "Coimbatore",
+      state: "Tamil Nadu",
+      logo: "PSG"
     }
-  }
+  });
 
-  for (const college of colleges) {
-    const record = await prisma.college.findUniqueOrThrow({ where: { slug: college.slug } });
-    await prisma.leaderboard.upsert({
-      where: { collegeId: record.id },
-      update: {},
-      create: { collegeId: record.id }
-    });
-  }
+  console.info("Seeded PSG College of Technology (psgtech.ac.in).");
+  console.info("Admin email allowlist: 24z218@psgtech.ac.in — register that address to unlock admin.");
 }
 
 main()
-  .then(async () => prisma.$disconnect())
-  .catch(async (error) => {
+  .catch((error) => {
     console.error(error);
-    await prisma.$disconnect();
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });
